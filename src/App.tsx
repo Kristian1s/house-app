@@ -8,16 +8,24 @@ import Login from './pages/Login'
 import Power from './pages/Power'
 import Renovation from './pages/Renovation'
 
+function LoadingScreen() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100svh' }}>
+      <span style={{ color: 'var(--text)' }}>Laster...</span>
+    </div>
+  )
+}
+
 function ProtectedRoutes() {
   const { user, loading } = useAuth()
-  if (loading) return null
+  if (loading) return <LoadingScreen />
   if (!user) return <Navigate to="/login" replace />
   return <Layout />
 }
 
 function LoginGuard() {
   const { user, loading } = useAuth()
-  if (loading) return null
+  if (loading) return <LoadingScreen />
   if (user) return <Navigate to="/" replace />
   return <Login />
 }
