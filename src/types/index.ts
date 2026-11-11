@@ -40,6 +40,17 @@ export interface RenovationProject {
   status: 'planned' | 'active' | 'done'
 }
 
+export interface GmailInvoice {
+  id: string
+  subject: string
+  from: string
+  date: { toDate: () => Date } | Date | string
+  snippet: string
+  amount: number | null
+  gmailMessageId: string
+  createdAt: { toDate: () => Date } | Date | string
+}
+
 export interface InventoryItem {
   id: string
   name: string

@@ -3,6 +3,7 @@ import Layout from './components/Layout'
 import { useAuth } from './hooks/useAuth'
 import Dashboard from './pages/Dashboard'
 import Expenses from './pages/Expenses'
+import GmailCallback from './pages/GmailCallback'
 import Inventory from './pages/Inventory'
 import Login from './pages/Login'
 import Power from './pages/Power'
@@ -35,6 +36,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginGuard />} />
+        <Route path="/gmail-callback" element={<GmailCallback />} />
         <Route element={<ProtectedRoutes />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/expenses" element={<Expenses />} />
