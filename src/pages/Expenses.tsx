@@ -103,6 +103,17 @@ function BudgetBar({ label, spent, limit, onEditLimit }: { label: string; spent:
   )
 }
 
+function AttachmentLink({ url, name }: { url: string; name: string }) {
+  const isPdf = name.toLowerCase().endsWith('.pdf')
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer"
+      title={name}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--accent)', textDecoration: 'none', padding: '2px 6px', borderRadius: 5, border: '1px solid var(--accent-border)', background: 'var(--accent-bg)', whiteSpace: 'nowrap' }}>
+      {isPdf ? '📄' : '🖼'} {name.length > 20 ? name.slice(0, 18) + '…' : name}
+    </a>
+  )
+}
+
 function ExpenseRow({ expense, onDelete, extra }: { expense: ManualExpense; onDelete?: () => void; extra?: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
@@ -112,6 +123,11 @@ function ExpenseRow({ expense, onDelete, extra }: { expense: ManualExpense; onDe
           {expense.type === 'recurring' ? `Fast · ${expense.recurrence === 'monthly' ? 'månedlig' : expense.recurrence === 'quarterly' ? 'kvartalsvis' : 'årlig'}` : fmtDate(expense.date)}
           {expense.dueDate && ` · forfall ${fmtDate(expense.dueDate)}`}
         </div>
+        {expense.attachmentUrl && expense.attachmentName && (
+          <div style={{ marginTop: 4 }}>
+            <AttachmentLink url={expense.attachmentUrl} name={expense.attachmentName} />
+          </div>
+        )}
       </div>
       {extra}
       <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-h)', whiteSpace: 'nowrap' }}>{fmt(expense.amount)}</div>

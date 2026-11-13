@@ -54,6 +54,8 @@ export interface ManualExpense {
   paidByUid: string
   paidByName: string
   settled: boolean
+  attachmentUrl: string | null
+  attachmentName: string | null
   createdAt: any
 }
 

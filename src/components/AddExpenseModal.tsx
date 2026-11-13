@@ -1,5 +1,7 @@
-import { useState } from 'react'
-import type { FormEvent } from 'react'
+import { useState, useRef } from 'react'
+import type { FormEvent, ChangeEvent } from 'react'
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
+import { storage } from '../firebase/config'
 import type { HouseMember, ManualExpense } from '../types'
 
 interface Props {
@@ -18,28 +20,66 @@ export default function AddExpenseModal({ currentUser, members, onAdd, onClose }
   const [type, setType] = useState<'recurring' | 'one-time'>('one-time')
   const [recurrence, setRecurrence] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly')
   const [paidByUid, setPaidByUid] = useState(currentUser.uid)
+  const [file, setFile] = useState<File | null>(null)
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const paidByName = members.find(m => m.uid === paidByUid)?.name
     || (paidByUid === currentUser.uid ? currentUser.name : 'Ukjent')
+
+  function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] ?? null
+    if (f && f.size > 15 * 1024 * 1024) {
+      alert('Filen er for stor. Maks 15 MB.')
+      return
+    }
+    setFile(f)
+  }
+
+  async function uploadFile(): Promise<{ url: string; name: string } | null> {
+    if (!file) return null
+    const path = `attachments/${currentUser.uid}/${Date.now()}_${file.name}`
+    const storageRef = ref(storage, path)
+    return new Promise((resolve, reject) => {
+      const task = uploadBytesResumable(storageRef, file)
+      task.on('state_changed',
+        snap => setUploadProgress(Math.round(snap.bytesTransferred / snap.totalBytes * 100)),
+        reject,
+        async () => {
+          const url = await getDownloadURL(task.snapshot.ref)
+          resolve({ url, name: file.name })
+        }
+      )
+    })
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!title || !amount) return
     setSaving(true)
-    await onAdd(scope, {
-      title: title.trim(),
-      amount: parseFloat(amount.replace(',', '.')),
-      date,
-      dueDate: dueDate || null,
-      type,
-      recurrence: type === 'recurring' ? recurrence : null,
-      scope,
-      paidByUid,
-      paidByName,
-      settled: false,
-    })
-    onClose()
+    try {
+      const attachment = await uploadFile()
+      await onAdd(scope, {
+        title: title.trim(),
+        amount: parseFloat(amount.replace(',', '.')),
+        date,
+        dueDate: dueDate || null,
+        type,
+        recurrence: type === 'recurring' ? recurrence : null,
+        scope,
+        paidByUid,
+        paidByName,
+        settled: false,
+        attachmentUrl: attachment?.url ?? null,
+        attachmentName: attachment?.name ?? null,
+      })
+      onClose()
+    } catch {
+      alert('Noe gikk galt ved opplasting. Prøv igjen.')
+      setSaving(false)
+      setUploadProgress(null)
+    }
   }
 
   const field: React.CSSProperties = {
@@ -121,6 +161,27 @@ export default function AddExpenseModal({ currentUser, members, onAdd, onClose }
               </div>
             </div>
           )}
+
+          {/* File attachment */}
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Vedlegg (PDF eller bilde, valgfritt)</label>
+            <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={handleFileChange} style={{ display: 'none' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button type="button" onClick={() => fileRef.current?.click()}
+                style={{ padding: '7px 12px', borderRadius: 7, border: '1px dashed var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13 }}>
+                {file ? '📎 Bytt fil' : '📎 Velg fil'}
+              </button>
+              {file && <span style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>{file.name}</span>}
+            </div>
+            {uploadProgress !== null && (
+              <div style={{ marginTop: 6 }}>
+                <div style={{ height: 4, background: 'var(--border)', borderRadius: 2 }}>
+                  <div style={{ height: '100%', width: `${uploadProgress}%`, background: 'var(--accent)', borderRadius: 2, transition: 'width 0.2s' }} />
+                </div>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Laster opp… {uploadProgress}%</span>
+              </div>
+            )}
+          </div>
 
           {/* Actions */}
           <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
