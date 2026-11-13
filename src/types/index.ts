@@ -42,6 +42,32 @@ export interface RenovationProject {
 
 export type InvoiceCategory = 'personlig' | 'felles' | null
 
+export interface ManualExpense {
+  id: string
+  title: string
+  amount: number
+  date: string
+  dueDate: string | null
+  type: 'recurring' | 'one-time'
+  recurrence: 'monthly' | 'quarterly' | 'yearly' | null
+  scope: 'felles' | 'personlig'
+  paidByUid: string
+  paidByName: string
+  settled: boolean
+  createdAt: any
+}
+
+export interface HouseMember {
+  uid: string
+  name: string
+  email: string
+}
+
+export interface HouseBudget {
+  fellesLimit: number
+  personligLimit: number
+}
+
 export interface GmailInvoice {
   id: string
   subject: string
