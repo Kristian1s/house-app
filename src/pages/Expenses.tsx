@@ -140,11 +140,30 @@ function ExpenseRow({ expense, onDelete, extra }: { expense: ManualExpense; onDe
 
 function GmailRow({ inv, uid, showCategory }: { inv: GmailInvoice; uid: string; showCategory?: boolean }) {
   const [saving, setSaving] = useState(false)
+  const [editingAmount, setEditingAmount] = useState(false)
+  const [amountVal, setAmountVal] = useState('')
 
   async function setCategory(cat: InvoiceCategory) {
     setSaving(true)
     await updateDoc(doc(db, 'users', uid, 'invoices', inv.id), { category: cat })
     setSaving(false)
+  }
+
+  async function deleteInvoice() {
+    await updateDoc(doc(db, 'users', uid, 'invoices', inv.id), { _deleted: true })
+  }
+
+  function startEdit() {
+    setAmountVal(inv.amount != null ? String(inv.amount) : '')
+    setEditingAmount(true)
+  }
+
+  async function saveAmount() {
+    const n = parseFloat(amountVal.replace(',', '.'))
+    if (!isNaN(n) && n > 0) {
+      await updateDoc(doc(db, 'users', uid, 'invoices', inv.id), { amount: n })
+    }
+    setEditingAmount(false)
   }
 
   return (
@@ -166,9 +185,25 @@ function GmailRow({ inv, uid, showCategory }: { inv: GmailInvoice; uid: string; 
           ))}
         </div>
       )}
-      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-h)', whiteSpace: 'nowrap' }}>
-        {inv.amount != null ? fmt(inv.amount) : '—'}
-      </div>
+      {editingAmount ? (
+        <input
+          autoFocus
+          value={amountVal}
+          onChange={e => setAmountVal(e.target.value)}
+          onBlur={saveAmount}
+          onKeyDown={e => { if (e.key === 'Enter') saveAmount(); if (e.key === 'Escape') setEditingAmount(false) }}
+          style={{ width: 90, padding: '3px 6px', borderRadius: 5, border: '1px solid var(--accent)', background: 'var(--code-bg)', color: 'var(--text-h)', fontSize: 13, outline: 'none', textAlign: 'right' }}
+        />
+      ) : (
+        <div
+          onClick={startEdit}
+          title="Klikk for å redigere beløp"
+          style={{ fontSize: 14, fontWeight: 600, color: inv.amount != null ? 'var(--text-h)' : 'var(--text-muted)', whiteSpace: 'nowrap', cursor: 'pointer', borderBottom: '1px dashed var(--border)', paddingBottom: 1 }}
+        >
+          {inv.amount != null ? fmt(inv.amount) : '— klikk for å sette'}
+        </div>
+      )}
+      <button onClick={deleteInvoice} title="Fjern" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, padding: '2px 4px', opacity: 0.5 }}>✕</button>
     </div>
   )
 }

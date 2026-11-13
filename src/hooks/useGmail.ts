@@ -35,7 +35,9 @@ export function useGmail(uid: string | undefined) {
 
     const unsub = onSnapshot(q, (snap) => {
       setInvoices(
-        snap.docs.map((d) => ({ id: d.id, ...d.data() } as GmailInvoice))
+        snap.docs
+          .map((d) => ({ id: d.id, ...d.data() } as GmailInvoice))
+          .filter((i) => !(i as any)._deleted)
       )
     })
 
