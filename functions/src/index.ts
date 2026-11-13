@@ -262,13 +262,18 @@ async function classifyWithGemini(from: string, subject: string, snippet: string
     generationConfig: { responseMimeType: "application/json" },
   });
 
-  const prompt = `Classify this email as a payment confirmation, receipt, or invoice — or not.
+  const prompt = `You are classifying emails to find ACTUAL payment transactions only.
 
 From: ${from}
 Subject: ${subject}
 Preview: ${snippet.slice(0, 300)}
 
-Reply with ONLY this JSON (no markdown):
+Return isPayment=TRUE only if this email confirms a completed purchase, charge, or invoice requesting payment.
+Return isPayment=FALSE for: marketing emails, newsletters, promotions, loyalty/membership updates, shipping notifications without a charge, or any email that does not confirm money was or must be paid.
+
+For amount: extract only the TOTAL amount paid/due. Ignore loyalty points, discounts, or partial amounts.
+
+Reply with ONLY this JSON (no markdown, no explanation):
 {"isPayment":true or false,"vendor":"company name or null","amount":number or null,"currency":"NOK/USD/EUR/etc or null"}`;
 
   try {
@@ -355,7 +360,9 @@ export const scanGmailInvoices = onSchedule(
           const fullText = `${subject} ${snippet} ${bodyText}`;
 
           // Use Gemini's extracted values, fall back to regex
-          const amount = gemini.amount ?? extractAmount(fullText);
+          const rawAmount = gemini.amount ?? extractAmount(fullText);
+          // Filter out noise — amounts under 20 kr are almost never real invoices
+          const amount = rawAmount && rawAmount >= 20 ? rawAmount : null;
           const dueDate = extractDueDate(fullText);
           const invoiceNumber = extractInvoiceNumber(fullText);
           const vendor = gemini.vendor ?? extractVendor(from);
