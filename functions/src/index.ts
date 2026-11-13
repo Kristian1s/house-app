@@ -282,8 +282,11 @@ Reply with ONLY this JSON (no markdown):
   try {
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
-    return JSON.parse(text) as GeminiResult;
-  } catch {
+    const parsed = JSON.parse(text) as GeminiResult;
+    logger.info(`Gemini [${subject.slice(0, 60)}]: isPayment=${parsed.isPayment} amount=${parsed.amount} vendor=${parsed.vendor}`);
+    return parsed;
+  } catch (err) {
+    logger.error(`Gemini failed for [${subject.slice(0, 60)}]`, err);
     return { isPayment: false, vendor: null, amount: null, currency: null };
   }
 }
@@ -347,6 +350,7 @@ export const scanGmailInvoices = onSchedule(
           const date = headers.find((h) => h.name === "Date")?.value ?? "";
           const snippet = full.data.snippet ?? "";
           const bodyText = extractBodyText(full.data.payload);
+          logger.info(`Body preview [${subject.slice(0, 40)}]: "${bodyText.slice(0, 300)}"`);
 
           // Single Gemini call with full body — accurate classification + amount extraction
           const gemini = await classifyWithGemini(from, subject, bodyText);
