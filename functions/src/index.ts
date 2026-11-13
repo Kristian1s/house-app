@@ -176,32 +176,30 @@ function extractBodyText(payload: any): string {
 }
 
 function extractAmount(text: string): number | null {
+  // Only match amounts that appear with explicit payment context labels.
+  // Deliberately excludes bare "kr X" patterns to avoid matching account
+  // numbers, KID codes, order numbers, and loyalty points.
   const patterns = [
-    // Norwegian: label + amount
-    /(?:totalt?|beløp|å betale|sum|fakturabeløp|forfallsbeløp|total amount|amount due|order total)[:\s]+([\d\s.,]+)/i,
-    // Norwegian: kr/NOK prefix or suffix
-    /(?:kr|nok)\.?\s*([\d\s.,]+)/i,
-    /([\d\s.,]+)\s*(?:kr|nok)\.?/i,
-    // USD/EUR with symbol
-    /(?:usd|eur|\$|€)\s*([\d.,]+)/i,
-    /([\d.,]+)\s*(?:usd|eur)/i,
-    // Steam: "Total: $X.XX" or "Total $X.XX"
-    /total[:\s]+\$?([\d.,]+)/i,
+    /(?:totalt?|total amount|grand total|amount charged)[:\s]+([\d\s]+(?:[.,]\d{1,2})?)/i,
+    /(?:beløp|å betale|fakturabeløp|forfallsbeløp|amount due|order total)[:\s]+([\d\s]+(?:[.,]\d{1,2})?)/i,
+    /(?:sum|subtotal)[:\s]+([\d\s]+(?:[.,]\d{1,2})?)/i,
+    // USD/EUR only when explicitly labeled as total
+    /(?:total|amount)[:\s]+\$\s*([\d.,]+)/i,
+    /(?:total|amount)[:\s]+€\s*([\d.,]+)/i,
+    /\$\s*([\d.,]+)\s*(?:usd)?/i,
   ];
 
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (!match) continue;
-    // Normalize: remove spaces, treat last separator as decimal
     let raw = match[1].trim().replace(/\s/g, "");
-    // If ends with ,XX or .XX (2 decimals) treat that as decimal separator
-    if (/[.,]\d{2}$/.test(raw)) {
-      raw = raw.replace(/[.,](\d{2})$/, ".$1").replace(/[.,]/g, "");
+    if (/[.,]\d{1,2}$/.test(raw)) {
+      raw = raw.replace(/[.,](\d{1,2})$/, ".$1").replace(/[.,]/g, "");
     } else {
       raw = raw.replace(/[.,]/g, "");
     }
     const amount = parseFloat(raw);
-    if (!isNaN(amount) && amount > 0 && amount < 999999) return amount;
+    if (!isNaN(amount) && amount >= 20 && amount < 500000) return amount;
   }
   return null;
 }
@@ -255,25 +253,30 @@ interface GeminiResult {
   currency: string | null;
 }
 
-async function classifyWithGemini(from: string, subject: string, snippet: string): Promise<GeminiResult> {
+async function classifyWithGemini(
+  from: string,
+  subject: string,
+  bodyText: string
+): Promise<GeminiResult> {
   const genAI = new GoogleGenerativeAI(GEMINI_API_KEY.value());
   const model = genAI.getGenerativeModel({
     model: "gemini-1.5-flash",
     generationConfig: { responseMimeType: "application/json" },
   });
 
-  const prompt = `You are classifying emails to find ACTUAL payment transactions only.
+  const prompt = `You are classifying emails to find ACTUAL payment transactions.
 
 From: ${from}
 Subject: ${subject}
-Preview: ${snippet.slice(0, 300)}
+Email body:
+${bodyText.slice(0, 1500)}
 
-Return isPayment=TRUE only if this email confirms a completed purchase, charge, or invoice requesting payment.
-Return isPayment=FALSE for: marketing emails, newsletters, promotions, loyalty/membership updates, shipping notifications without a charge, or any email that does not confirm money was or must be paid.
+Return isPayment=TRUE only if this email confirms a completed purchase, charge, or is an invoice requesting payment.
+Return isPayment=FALSE for: marketing emails, newsletters, promotions, loyalty/membership updates, or any email that does not confirm money was or must be paid.
 
-For amount: extract only the TOTAL amount paid/due. Ignore loyalty points, discounts, or partial amounts.
+For amount: find the TOTAL amount paid or due. Ignore account numbers, KID numbers, customer IDs, loyalty points, and partial line items. The total is usually labeled "Total", "Totalt", "Beløp", "Å betale", "Fakturabeløp", or similar.
 
-Reply with ONLY this JSON (no markdown, no explanation):
+Reply with ONLY this JSON (no markdown):
 {"isPayment":true or false,"vendor":"company name or null","amount":number or null,"currency":"NOK/USD/EUR/etc or null"}`;
 
   try {
@@ -331,38 +334,27 @@ export const scanGmailInvoices = onSchedule(
             .get();
           if (existing.exists) continue;
 
-          // Fetch metadata first (cheap) to get subject/from/snippet for Gemini
-          const meta = await gmail.users.messages.get({
-            userId: "me",
-            id: msg.id,
-            format: "metadata",
-            metadataHeaders: ["Subject", "From", "Date"],
-          });
-
-          const headers = meta.data.payload?.headers ?? [];
-          const subject = headers.find((h) => h.name === "Subject")?.value ?? "";
-          const from = headers.find((h) => h.name === "From")?.value ?? "";
-          const date = headers.find((h) => h.name === "Date")?.value ?? "";
-          const snippet = meta.data.snippet ?? "";
-
-          // Ask Gemini if this is a payment email, fall back to keyword match
-          const gemini = await classifyWithGemini(from, subject, snippet);
-          if (!gemini.isPayment && !isInvoiceEmail(subject, snippet)) continue;
-
-          // Only fetch full body for confirmed payment emails
+          // Fetch full message immediately so Gemini has body context for classification + amount
           const full = await gmail.users.messages.get({
             userId: "me",
             id: msg.id,
             format: "full",
           });
 
-          const bodyText = extractBodyText(full.data.payload).slice(0, 6000);
-          const fullText = `${subject} ${snippet} ${bodyText}`;
+          const headers = full.data.payload?.headers ?? [];
+          const subject = headers.find((h) => h.name === "Subject")?.value ?? "";
+          const from = headers.find((h) => h.name === "From")?.value ?? "";
+          const date = headers.find((h) => h.name === "Date")?.value ?? "";
+          const snippet = full.data.snippet ?? "";
+          const bodyText = extractBodyText(full.data.payload);
 
-          // Use Gemini's extracted values, fall back to regex
-          const rawAmount = gemini.amount ?? extractAmount(fullText);
-          // Filter out noise — amounts under 20 kr are almost never real invoices
-          const amount = rawAmount && rawAmount >= 20 ? rawAmount : null;
+          // Single Gemini call with full body — accurate classification + amount extraction
+          const gemini = await classifyWithGemini(from, subject, bodyText);
+          if (!gemini.isPayment && !isInvoiceEmail(subject, snippet)) continue;
+
+          const fullText = `${subject} ${snippet} ${bodyText}`;
+          // Trust Gemini for amount (it has full context), regex only as last resort
+          const amount = gemini.amount && gemini.amount >= 20 ? gemini.amount : extractAmount(fullText);
           const dueDate = extractDueDate(fullText);
           const invoiceNumber = extractInvoiceNumber(fullText);
           const vendor = gemini.vendor ?? extractVendor(from);
