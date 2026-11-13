@@ -123,6 +123,8 @@ const INVOICE_KEYWORDS = [
   "faktura", "invoice", "kvittering", "receipt",
   "betaling", "payment", "regning", "bill",
   "ordre", "order confirmation", "ordrebekreftelse",
+  "purchase", "kjøp", "your order", "order receipt",
+  "thank you for your purchase", "subscription",
 ];
 
 function isInvoiceEmail(subject: string, snippet: string): boolean {
@@ -173,15 +175,29 @@ function extractBodyText(payload: any): string {
 
 function extractAmount(text: string): number | null {
   const patterns = [
-    /(?:totalt?|beløp|å betale|sum|fakturabeløp|forfallsbeløp|total amount)[:\s]+([\d\s]+(?:[.,]\d{2})?)/i,
-    /(?:kr|nok)\.?\s*([\d\s]+(?:[.,]\d{2})?)/i,
-    /([\d\s]+(?:[.,]\d{2})?)\s*(?:kr|nok)\.?/i,
+    // Norwegian: label + amount
+    /(?:totalt?|beløp|å betale|sum|fakturabeløp|forfallsbeløp|total amount|amount due|order total)[:\s]+([\d\s.,]+)/i,
+    // Norwegian: kr/NOK prefix or suffix
+    /(?:kr|nok)\.?\s*([\d\s.,]+)/i,
+    /([\d\s.,]+)\s*(?:kr|nok)\.?/i,
+    // USD/EUR with symbol
+    /(?:usd|eur|\$|€)\s*([\d.,]+)/i,
+    /([\d.,]+)\s*(?:usd|eur)/i,
+    // Steam: "Total: $X.XX" or "Total $X.XX"
+    /total[:\s]+\$?([\d.,]+)/i,
   ];
 
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (!match) continue;
-    const raw = match[1].trim().replace(/\s/g, "").replace(",", ".");
+    // Normalize: remove spaces, treat last separator as decimal
+    let raw = match[1].trim().replace(/\s/g, "");
+    // If ends with ,XX or .XX (2 decimals) treat that as decimal separator
+    if (/[.,]\d{2}$/.test(raw)) {
+      raw = raw.replace(/[.,](\d{2})$/, ".$1").replace(/[.,]/g, "");
+    } else {
+      raw = raw.replace(/[.,]/g, "");
+    }
     const amount = parseFloat(raw);
     if (!isNaN(amount) && amount > 0 && amount < 999999) return amount;
   }
@@ -258,7 +274,7 @@ export const scanGmailInvoices = onSchedule(
 
         const listRes = await gmail.users.messages.list({
           userId: "me",
-          q: `after:${after} (faktura OR invoice OR kvittering OR receipt OR regning)`,
+          q: `after:${after} (faktura OR invoice OR kvittering OR receipt OR regning OR purchase OR kjøp OR "your order" OR subscription)`,
           maxResults: 50,
         });
 
