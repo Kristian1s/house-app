@@ -6,9 +6,11 @@ import { defineSecret } from "firebase-functions/params";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { google } from "googleapis";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const GOOGLE_CLIENT_ID = defineSecret("GOOGLE_CLIENT_ID");
 const GOOGLE_CLIENT_SECRET = defineSecret("GOOGLE_CLIENT_SECRET");
+const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
 
 const ALLOWED_REDIRECT_URIS = [
   "http://localhost:5173/gmail-callback",
@@ -246,9 +248,41 @@ function extractVendor(from: string): string {
   return from;
 }
 
+interface GeminiResult {
+  isPayment: boolean;
+  vendor: string | null;
+  amount: number | null;
+  currency: string | null;
+}
+
+async function classifyWithGemini(from: string, subject: string, snippet: string): Promise<GeminiResult> {
+  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY.value());
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash",
+    generationConfig: { responseMimeType: "application/json" },
+  });
+
+  const prompt = `Classify this email as a payment confirmation, receipt, or invoice — or not.
+
+From: ${from}
+Subject: ${subject}
+Preview: ${snippet.slice(0, 300)}
+
+Reply with ONLY this JSON (no markdown):
+{"isPayment":true or false,"vendor":"company name or null","amount":number or null,"currency":"NOK/USD/EUR/etc or null"}`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim();
+    return JSON.parse(text) as GeminiResult;
+  } catch {
+    return { isPayment: false, vendor: null, amount: null, currency: null };
+  }
+}
+
 // Runs every hour. Scans Gmail for invoice emails and saves them to Firestore.
 export const scanGmailInvoices = onSchedule(
-  { schedule: "every 1 hours", region: "europe-west1", secrets: [GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET] },
+  { schedule: "every 1 hours", region: "europe-west1", secrets: [GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GEMINI_API_KEY] },
   async () => {
     const usersSnap = await db
       .collection("users")
@@ -274,8 +308,8 @@ export const scanGmailInvoices = onSchedule(
 
         const listRes = await gmail.users.messages.list({
           userId: "me",
-          q: `after:${after} (faktura OR invoice OR kvittering OR receipt OR regning OR purchase OR kjøp OR "your order" OR subscription)`,
-          maxResults: 50,
+          q: `after:${after} (category:updates OR category:promotions OR faktura OR invoice OR receipt OR kvittering OR purchase OR ordre OR subscription)`,
+          maxResults: 75,
         });
 
         const messages = listRes.data.messages ?? [];
@@ -292,27 +326,39 @@ export const scanGmailInvoices = onSchedule(
             .get();
           if (existing.exists) continue;
 
+          // Fetch metadata first (cheap) to get subject/from/snippet for Gemini
+          const meta = await gmail.users.messages.get({
+            userId: "me",
+            id: msg.id,
+            format: "metadata",
+            metadataHeaders: ["Subject", "From", "Date"],
+          });
+
+          const headers = meta.data.payload?.headers ?? [];
+          const subject = headers.find((h) => h.name === "Subject")?.value ?? "";
+          const from = headers.find((h) => h.name === "From")?.value ?? "";
+          const date = headers.find((h) => h.name === "Date")?.value ?? "";
+          const snippet = meta.data.snippet ?? "";
+
+          // Ask Gemini if this is a payment email, fall back to keyword match
+          const gemini = await classifyWithGemini(from, subject, snippet);
+          if (!gemini.isPayment && !isInvoiceEmail(subject, snippet)) continue;
+
+          // Only fetch full body for confirmed payment emails
           const full = await gmail.users.messages.get({
             userId: "me",
             id: msg.id,
             format: "full",
           });
 
-          const headers = full.data.payload?.headers ?? [];
-          const subject = headers.find((h) => h.name === "Subject")?.value ?? "";
-          const from = headers.find((h) => h.name === "From")?.value ?? "";
-          const date = headers.find((h) => h.name === "Date")?.value ?? "";
-          const snippet = full.data.snippet ?? "";
-
-          if (!isInvoiceEmail(subject, snippet)) continue;
-
           const bodyText = extractBodyText(full.data.payload).slice(0, 6000);
           const fullText = `${subject} ${snippet} ${bodyText}`;
 
-          const amount = extractAmount(fullText);
+          // Use Gemini's extracted values, fall back to regex
+          const amount = gemini.amount ?? extractAmount(fullText);
           const dueDate = extractDueDate(fullText);
           const invoiceNumber = extractInvoiceNumber(fullText);
-          const vendor = extractVendor(from);
+          const vendor = gemini.vendor ?? extractVendor(from);
 
           await db
             .collection("users")
