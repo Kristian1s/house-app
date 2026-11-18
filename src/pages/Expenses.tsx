@@ -1,15 +1,11 @@
 import { useState } from 'react'
-import { doc, updateDoc } from 'firebase/firestore'
-import { db } from '../firebase/config'
 import { useAuth } from '../hooks/useAuth'
-import { useGmail } from '../hooks/useGmail'
 import { useFellesExpenses } from '../hooks/useFellesExpenses'
 import { usePersonalExpenses } from '../hooks/usePersonalExpenses'
 import { useHouseMembers } from '../hooks/useHouseMembers'
 import { useBudget } from '../hooks/useBudget'
-import GmailConnect from '../components/GmailConnect'
 import AddExpenseModal from '../components/AddExpenseModal'
-import type { ManualExpense, GmailInvoice, InvoiceCategory } from '../types'
+import type { ManualExpense } from '../types'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -32,27 +28,11 @@ function sumMonth(expenses: ManualExpense[]) {
   return expenses.filter(e => thisMonth(e.date)).reduce((s, e) => s + e.amount, 0)
 }
 
-function sumGmailMonth(invoices: GmailInvoice[]) {
-  const now = new Date()
-  return invoices.filter(inv => {
-    const d = typeof inv.date === 'object' && 'toDate' in inv.date ? inv.date.toDate() : new Date(inv.date as string)
-    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
-  }).reduce((s, i) => s + (i.amount ?? 0), 0)
-}
-
-function dueWithin30(expenses: ManualExpense[], invoices: GmailInvoice[]) {
+function dueWithin30(expenses: ManualExpense[]) {
   const cutoff = Date.now() + 30 * 24 * 60 * 60 * 1000
-  const fromManual = expenses
+  return expenses
     .filter(e => e.dueDate && new Date(e.dueDate).getTime() <= cutoff && new Date(e.dueDate).getTime() >= Date.now())
     .reduce((s, e) => s + e.amount, 0)
-  const fromGmail = invoices
-    .filter(i => {
-      if (!i.dueDate) return false
-      const d = typeof i.dueDate === 'object' && 'toDate' in i.dueDate ? i.dueDate.toDate() : new Date(i.dueDate as string)
-      return d.getTime() <= cutoff && d.getTime() >= Date.now()
-    })
-    .reduce((s, i) => s + (i.amount ?? 0), 0)
-  return fromManual + fromGmail
 }
 
 // ── sub-components ────────────────────────────────────────────────────────────
@@ -138,75 +118,6 @@ function ExpenseRow({ expense, onDelete, extra }: { expense: ManualExpense; onDe
   )
 }
 
-function GmailRow({ inv, uid, showCategory }: { inv: GmailInvoice; uid: string; showCategory?: boolean }) {
-  const [saving, setSaving] = useState(false)
-  const [editingAmount, setEditingAmount] = useState(false)
-  const [amountVal, setAmountVal] = useState('')
-
-  async function setCategory(cat: InvoiceCategory) {
-    setSaving(true)
-    await updateDoc(doc(db, 'users', uid, 'invoices', inv.id), { category: cat })
-    setSaving(false)
-  }
-
-  async function deleteInvoice() {
-    await updateDoc(doc(db, 'users', uid, 'invoices', inv.id), { _deleted: true })
-  }
-
-  function startEdit() {
-    setAmountVal(inv.amount != null ? String(inv.amount) : '')
-    setEditingAmount(true)
-  }
-
-  async function saveAmount() {
-    const n = parseFloat(amountVal.replace(',', '.'))
-    if (!isNaN(n) && n > 0) {
-      await updateDoc(doc(db, 'users', uid, 'invoices', inv.id), { amount: n })
-    }
-    setEditingAmount(false)
-  }
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 13, color: 'var(--text-h)', fontWeight: 500 }}>{inv.vendor || inv.from.replace(/<.*>/, '').trim()}</div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-          Gmail · {fmtDate(inv.date)}
-          {inv.dueDate && ` · forfall ${fmtDate(inv.dueDate)}`}
-        </div>
-      </div>
-      {showCategory && (
-        <div style={{ display: 'flex', gap: 4 }}>
-          {(['personlig', 'felles'] as InvoiceCategory[]).map(cat => (
-            <button key={cat} onClick={() => setCategory(inv.category === cat ? null : cat)} disabled={saving}
-              style={{ fontSize: 11, padding: '2px 7px', borderRadius: 5, cursor: 'pointer', border: `1px solid ${inv.category === cat ? 'var(--accent-border)' : 'var(--border)'}`, background: inv.category === cat ? 'var(--accent-bg)' : 'transparent', color: inv.category === cat ? 'var(--accent)' : 'var(--text-muted)', opacity: saving ? 0.5 : 1 }}>
-              {cat}
-            </button>
-          ))}
-        </div>
-      )}
-      {editingAmount ? (
-        <input
-          autoFocus
-          value={amountVal}
-          onChange={e => setAmountVal(e.target.value)}
-          onBlur={saveAmount}
-          onKeyDown={e => { if (e.key === 'Enter') saveAmount(); if (e.key === 'Escape') setEditingAmount(false) }}
-          style={{ width: 90, padding: '3px 6px', borderRadius: 5, border: '1px solid var(--accent)', background: 'var(--code-bg)', color: 'var(--text-h)', fontSize: 13, outline: 'none', textAlign: 'right' }}
-        />
-      ) : (
-        <div
-          onClick={startEdit}
-          title="Klikk for å redigere beløp"
-          style={{ fontSize: 14, fontWeight: 600, color: inv.amount != null ? 'var(--text-h)' : 'var(--text-muted)', whiteSpace: 'nowrap', cursor: 'pointer', borderBottom: '1px dashed var(--border)', paddingBottom: 1 }}
-        >
-          {inv.amount != null ? fmt(inv.amount) : '— klikk for å sette'}
-        </div>
-      )}
-      <button onClick={deleteInvoice} title="Fjern" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, padding: '2px 4px', opacity: 0.5 }}>✕</button>
-    </div>
-  )
-}
 
 function SectionHeader({ title, count, total }: { title: string; count: number; total?: number }) {
   return (
@@ -223,7 +134,6 @@ function SectionHeader({ title, count, total }: { title: string; count: number; 
 
 export default function Expenses() {
   const { user } = useAuth()
-  const { connected, loading: gmailLoading, invoices } = useGmail(user?.uid)
   const { expenses: felles, loading: fellesLoading, addExpense: addFelles, deleteExpense: deleteFelles, settleAll, toggleSettled } = useFellesExpenses()
   const { expenses: personal, loading: personalLoading, addExpense: addPersonal, deleteExpense: deletePersonal } = usePersonalExpenses(user?.uid)
   const members = useHouseMembers(user)
@@ -231,17 +141,12 @@ export default function Expenses() {
   const [showModal, setShowModal] = useState(false)
 
   if (!user) return null
-  const loading = gmailLoading || fellesLoading || personalLoading
+  const loading = fellesLoading || personalLoading
 
   const currentUser = {
     uid: user.uid,
     name: user.displayName || user.email?.split('@')[0] || 'Meg',
   }
-
-  // Split invoices by category
-  const fellesInvoices = invoices.filter(i => i.category === 'felles')
-  const personalInvoices = invoices.filter(i => i.category === 'personlig')
-  const uncategorizedInvoices = invoices.filter(i => !i.category)
 
   // Split manual expenses
   const fellesRecurring = felles.filter(e => e.type === 'recurring')
@@ -250,9 +155,9 @@ export default function Expenses() {
   const personalOneTime = personal.filter(e => e.type === 'one-time')
 
   // Summary numbers
-  const fellesTotal = sumMonth(felles) + sumGmailMonth(fellesInvoices)
-  const personalTotal = sumMonth(personal) + sumGmailMonth(personalInvoices)
-  const upcoming = dueWithin30([...felles, ...personal], [...fellesInvoices, ...personalInvoices])
+  const fellesTotal = sumMonth(felles)
+  const personalTotal = sumMonth(personal)
+  const upcoming = dueWithin30([...felles, ...personal])
 
   // Balance calculation (unsettled felles only)
   const unsettled = felles.filter(e => !e.settled)
@@ -279,17 +184,14 @@ export default function Expenses() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <h1 style={{ margin: 0 }}>Utgifter</h1>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          {!gmailLoading && <GmailConnect connected={connected} />}
-          <button onClick={() => setShowModal(true)} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
-            + Legg til
-          </button>
-        </div>
+        <button onClick={() => setShowModal(true)} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
+          + Legg til
+        </button>
       </div>
 
       {/* Summary cards */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-        <SummaryCard label="Felles denne måneden" value={loading ? '…' : fmt(fellesTotal)} sub="manuelle + Gmail" />
+        <SummaryCard label="Felles denne måneden" value={loading ? '…' : fmt(fellesTotal)} sub="denne måneden" />
         <SummaryCard label="Min personlig" value={loading ? '…' : fmt(personalTotal)} sub="denne måneden" />
         <SummaryCard label="Forfall 30 dager" value={loading ? '…' : fmt(upcoming)} sub="kommende betalinger" />
         <SummaryCard
@@ -339,14 +241,7 @@ export default function Expenses() {
           </div>
         )}
 
-        {fellesInvoices.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            <SectionHeader title="Gmail fakturaer" count={fellesInvoices.length} total={fellesInvoices.reduce((s, i) => s + (i.amount ?? 0), 0)} />
-            {fellesInvoices.map(inv => <GmailRow key={inv.id} inv={inv} uid={user.uid} />)}
-          </div>
-        )}
-
-        {felles.length === 0 && fellesInvoices.length === 0 && (
+        {felles.length === 0 && (
           <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Ingen felles utgifter ennå. Legg til med + knappen.</p>
         )}
 
@@ -384,26 +279,10 @@ export default function Expenses() {
           </div>
         )}
 
-        {personalInvoices.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            <SectionHeader title="Gmail fakturaer" count={personalInvoices.length} total={personalInvoices.reduce((s, i) => s + (i.amount ?? 0), 0)} />
-            {personalInvoices.map(inv => <GmailRow key={inv.id} inv={inv} uid={user.uid} />)}
-          </div>
-        )}
-
-        {personal.length === 0 && personalInvoices.length === 0 && (
+        {personal.length === 0 && (
           <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Ingen personlige utgifter ennå.</p>
         )}
       </div>
-
-      {/* Uncategorized Gmail invoices */}
-      {uncategorizedInvoices.length > 0 && (
-        <div style={card}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-h)', marginBottom: 4 }}>Gmail — ikke kategorisert</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>Merk fakturaer som felles eller personlig</div>
-          {uncategorizedInvoices.map(inv => <GmailRow key={inv.id} inv={inv} uid={user.uid} showCategory />)}
-        </div>
-      )}
 
       {showModal && (
         <AddExpenseModal

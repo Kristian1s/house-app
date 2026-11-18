@@ -40,8 +40,6 @@ export interface RenovationProject {
   status: 'planned' | 'active' | 'done'
 }
 
-export type InvoiceCategory = 'personlig' | 'felles' | null
-
 export interface ManualExpense {
   id: string
   title: string
@@ -68,21 +66,6 @@ export interface HouseMember {
 export interface HouseBudget {
   fellesLimit: number
   personligLimit: number
-}
-
-export interface GmailInvoice {
-  id: string
-  subject: string
-  from: string
-  vendor: string
-  date: { toDate: () => Date } | Date | string
-  dueDate: { toDate: () => Date } | Date | string | null
-  snippet: string
-  amount: number | null
-  invoiceNumber: string | null
-  category: InvoiceCategory
-  gmailMessageId: string
-  createdAt: { toDate: () => Date } | Date | string
 }
 
 export interface InventoryItem {
