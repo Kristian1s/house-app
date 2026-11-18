@@ -22,5 +22,15 @@ jobs:
       - name: Install functions dependencies
         run: npm ci --prefix functions
 
+      - name: Create .env.production
+        run: |
+          echo "VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}" >> .env.production
+          echo "VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}" >> .env.production
+          echo "VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID }}" >> .env.production
+          echo "VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}" >> .env.production
+          echo "VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}" >> .env.production
+          echo "VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}" >> .env.production
+          echo "VITE_TIBBER_TOKEN=${{ secrets.VITE_TIBBER_TOKEN }}" >> .env.production
+
       - name: Deploy to Firebase
         run: npx firebase-tools deploy --only hosting,functions --token ${{ secrets.FIREBASE_TOKEN }} --non-interactive
