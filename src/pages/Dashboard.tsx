@@ -30,7 +30,7 @@ function MomIndicator({ current, prev }: { current: number; prev: number }) {
 
 export default function Dashboard() {
   const { user } = useAuth()
-  const { expenses, loading } = useHouseExpenses()
+  const { expenses, loading } = useHouseExpenses(user?.uid ?? null)
 
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())

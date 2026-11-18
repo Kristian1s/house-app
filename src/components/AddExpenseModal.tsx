@@ -46,7 +46,7 @@ export default function AddExpenseModal({ currentUserName, currentUserUid, onAdd
     const path = `expenses/${currentUserUid}/${Date.now()}_${file.name}`
     const storageRef = ref(storage, path)
     return new Promise((resolve, reject) => {
-      const task = uploadBytesResumable(storageRef, file)
+      const task = uploadBytesResumable(storageRef, file, { contentType: 'application/pdf' })
       task.on(
         'state_changed',
         snap => setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
@@ -72,15 +72,15 @@ export default function AddExpenseModal({ currentUserName, currentUserUid, onAdd
         paidBy,
         category,
         date,
-        description: description.trim() || undefined,
+        ...(description.trim() && { description: description.trim() }),
         pdfPath: path,
         pdfUrl: url,
         createdBy: currentUserUid,
         createdAt: new Date().toISOString(),
       })
       onClose()
-    } catch {
-      alert('Noe gikk galt. Prøv igjen.')
+    } catch (err) {
+      alert('Feil: ' + (err instanceof Error ? err.message : String(err)))
       setSaving(false)
       setUploadProgress(null)
     }

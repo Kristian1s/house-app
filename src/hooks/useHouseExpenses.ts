@@ -3,17 +3,21 @@ import { collection, onSnapshot, query, orderBy, addDoc, deleteDoc, doc } from '
 import { db } from '../firebase/config'
 import type { HouseExpense } from '../types'
 
-export function useHouseExpenses() {
+export function useHouseExpenses(uid: string | null) {
   const [expenses, setExpenses] = useState<HouseExpense[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!uid) return
     const q = query(collection(db, 'house', 'main', 'expenses'), orderBy('date', 'desc'))
     return onSnapshot(q, (snap) => {
       setExpenses(snap.docs.map(d => ({ id: d.id, ...d.data() } as HouseExpense)))
       setLoading(false)
+    }, (err) => {
+      console.error('useHouseExpenses error:', err)
+      setLoading(false)
     })
-  }, [])
+  }, [uid])
 
   async function addExpense(data: Omit<HouseExpense, 'id'>) {
     await addDoc(collection(db, 'house', 'main', 'expenses'), data)

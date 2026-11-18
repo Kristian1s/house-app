@@ -17,7 +17,7 @@ const PAYER_FILTERS = ['Alle', 'Kristian', 'Kristine'] as const
 
 export default function Expenses() {
   const { user } = useAuth()
-  const { expenses, loading, addExpense, deleteExpense } = useHouseExpenses()
+  const { expenses, loading, addExpense, deleteExpense } = useHouseExpenses(user?.uid ?? null)
   const [showModal, setShowModal] = useState(false)
   const [filterCategory, setFilterCategory] = useState<HouseCategory | 'Alle'>('Alle')
   const [filterPayer, setFilterPayer] = useState<string>('Alle')

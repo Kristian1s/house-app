@@ -13,8 +13,8 @@ export default function Login() {
     setError('')
     try {
       await login(email, password)
-    } catch {
-      setError('Feil e-post eller passord')
+    } catch (err: any) {
+      setError(err?.code || err?.message || 'Ukjent feil')
     }
   }
 
