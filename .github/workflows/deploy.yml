@@ -33,4 +33,4 @@ jobs:
           echo "VITE_TIBBER_TOKEN=${{ secrets.VITE_TIBBER_TOKEN }}" >> .env.production
 
       - name: Deploy to Firebase
-        run: npx firebase-tools deploy --only hosting,functions --token ${{ secrets.FIREBASE_TOKEN }} --non-interactive
+        run: npx firebase-tools deploy --only hosting,functions,firestore:rules,storage --token ${{ secrets.FIREBASE_TOKEN }} --non-interactive
