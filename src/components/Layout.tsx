@@ -5,7 +5,6 @@ const navItems = [
   { to: '/', label: 'Dashboard' },
   { to: '/expenses', label: 'Utgifter' },
   { to: '/renovation', label: 'Renovering' },
-  { to: '/power', label: 'Strøm' },
   { to: '/inventory', label: 'Inventar' },
 ]
 
