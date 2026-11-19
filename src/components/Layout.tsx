@@ -6,6 +6,7 @@ const navItems = [
   { to: '/expenses', label: 'Utgifter' },
   { to: '/renovation', label: 'Renovering' },
   { to: '/inventory', label: 'Inventar' },
+  { to: '/insights', label: 'Innsikt' },
 ]
 
 export default function Layout() {
