@@ -14,6 +14,7 @@ export const HOUSE_CATEGORIES = [
   'Forsikring',
   'Renovering',
   'Vedlikehold',
+  'Utstyr',
 ] as const
 
 export type HouseCategory = (typeof HOUSE_CATEGORIES)[number]
@@ -86,9 +87,11 @@ export interface InventoryItem {
   price?: number
   store?: string
   warrantyEnd?: string
+  notes?: string
   receiptUrl?: string
+  receiptPath?: string
   manualUrl?: string
-  projectId?: string
+  createdAt?: any
 }
 
 // kept for Phase 2 personal economy
