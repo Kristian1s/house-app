@@ -8,16 +8,12 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'House App',
-        short_name: 'House',
+        name: 'Leiteveien',
+        short_name: 'Leiteveien',
         description: 'Shared house finance and project tracker',
-        theme_color: '#1a1a2e',
-        background_color: '#ffffff',
+        theme_color: '#aa3bff',
+        background_color: '#f5f4f8',
         display: 'standalone',
-        icons: [
-          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-        ],
       },
     }),
   ],
