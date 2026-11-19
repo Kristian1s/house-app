@@ -46,13 +46,34 @@ export interface HouseMember {
   email: string
 }
 
+export const RENOVATION_CATEGORIES = ['Materialer', 'Arbeid', 'Leie', 'Annet'] as const
+export type RenovationCategory = (typeof RENOVATION_CATEGORIES)[number]
+
 export interface RenovationProject {
   id: string
   name: string
-  budget: number
+  budget?: number
   startDate?: string
   endDate?: string
   status: 'planned' | 'active' | 'done'
+  description?: string
+  createdAt?: any
+}
+
+export interface RenovationExpense {
+  id: string
+  projectId: string
+  amount: number
+  description: string
+  date: string
+  paidBy: string
+  category: RenovationCategory
+  contractor?: { name: string; contact?: string; phone?: string; email?: string }
+  warrantyEnd?: string
+  receiptUrl?: string
+  receiptPath?: string
+  createdBy: string
+  createdAt: any
 }
 
 export interface InventoryItem {

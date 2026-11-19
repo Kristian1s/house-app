@@ -5,7 +5,6 @@ import Dashboard from './pages/Dashboard'
 import Expenses from './pages/Expenses'
 import Inventory from './pages/Inventory'
 import Login from './pages/Login'
-import Power from './pages/Power'
 import Renovation from './pages/Renovation'
 
 function LoadingScreen() {
@@ -39,7 +38,6 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/renovation" element={<Renovation />} />
-          <Route path="/power" element={<Power />} />
           <Route path="/inventory" element={<Inventory />} />
         </Route>
       </Routes>
