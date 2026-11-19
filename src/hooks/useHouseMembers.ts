@@ -3,6 +3,7 @@ import { doc, setDoc, collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import type { User } from 'firebase/auth'
 import type { HouseMember } from '../types'
+import { nameFromUser } from '../types'
 
 export function useHouseMembers(user: User | null) {
   const [members, setMembers] = useState<HouseMember[]>([])
@@ -12,7 +13,7 @@ export function useHouseMembers(user: User | null) {
     // Register current user as a house member
     setDoc(doc(db, 'house', 'main', 'members', user.uid), {
       uid: user.uid,
-      name: user.displayName || 'Kristian',
+      name: nameFromUser(user),
       email: user.email || '',
     } satisfies HouseMember, { merge: true })
   }, [user])

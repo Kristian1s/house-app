@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { useHouseExpenses } from '../hooks/useHouseExpenses'
-import { HOUSE_CATEGORIES, RECURRING_CATEGORIES } from '../types'
+import { HOUSE_CATEGORIES, RECURRING_CATEGORIES, nameFromUser } from '../types'
 import type { HouseCategory, HouseExpense } from '../types'
 
 function fmt(n: number) {
@@ -38,7 +38,7 @@ export default function Dashboard() {
 
   if (!user) return null
 
-  const currentUserName = user.displayName || 'Kristian'
+  const currentUserName = nameFromUser(user)
   const otherName = currentUserName === 'Kristian' ? 'Kristine' : 'Kristian'
 
   const monthExpenses = expensesForMonth(expenses, year, month)

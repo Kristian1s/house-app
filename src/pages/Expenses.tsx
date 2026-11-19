@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { useHouseExpenses } from '../hooks/useHouseExpenses'
 import AddExpenseModal from '../components/AddExpenseModal'
-import { HOUSE_CATEGORIES } from '../types'
+import { HOUSE_CATEGORIES, nameFromUser } from '../types'
 import type { HouseCategory } from '../types'
 
 function fmt(n: number) {
@@ -24,7 +24,7 @@ export default function Expenses() {
 
   if (!user) return null
 
-  const currentUserName = user.displayName || user.email?.split('@')[0] || 'Kristian'
+  const currentUserName = nameFromUser(user)
 
   const filtered = expenses.filter(e => {
     if (filterCategory !== 'Alle' && e.category !== filterCategory) return false

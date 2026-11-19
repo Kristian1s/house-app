@@ -1,3 +1,10 @@
+import type { User } from 'firebase/auth'
+
+export function nameFromUser(user: User): string {
+  if (user.displayName) return user.displayName
+  return user.email === 'kristiansatree@gmail.com' ? 'Kristian' : 'Kristine'
+}
+
 export const HOUSE_CATEGORIES = [
   'Boliglån',
   'Strøm',
