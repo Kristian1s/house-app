@@ -38,7 +38,7 @@ export default function Dashboard() {
 
   if (!user) return null
 
-  const currentUserName = user.displayName || user.email?.split('@')[0] || 'Kristian'
+  const currentUserName = user.displayName || 'Kristian'
   const otherName = currentUserName === 'Kristian' ? 'Kristine' : 'Kristian'
 
   const monthExpenses = expensesForMonth(expenses, year, month)
@@ -68,16 +68,12 @@ export default function Dashboard() {
 
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth()
 
-  const card: React.CSSProperties = {
-    background: 'var(--code-bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px', marginBottom: 16,
-  }
-
   return (
-    <div style={{ padding: '24px 16px', maxWidth: 800, margin: '0 auto' }}>
-      <h1 style={{ margin: '0 0 20px' }}>Oversikt</h1>
+    <div className="page">
+      <h1 style={{ marginBottom: 20 }}>Oversikt</h1>
 
       {/* 50/50 balance */}
-      <div style={{ ...card, background: diff !== 0 ? 'var(--accent-bg)' : 'var(--code-bg)', border: `1px solid ${diff !== 0 ? 'var(--accent-border)' : 'var(--border)'}` }}>
+      <div className="card" style={{ marginBottom: 16, ...(diff !== 0 && { background: 'var(--accent-bg)', border: '1px solid var(--accent-border)' }) }}>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>50/50 balanse – alle utgifter</div>
         <div style={{ fontSize: 22, fontWeight: 700, color: diff !== 0 ? 'var(--accent)' : 'var(--text-h)' }}>
           {loading ? '…' : diff === 0 ? 'Dere er kvitt' : diff > 0 ? `${otherName} skylder deg ${fmt(diff)}` : `Du skylder ${otherName} ${fmt(Math.abs(diff))}`}
@@ -115,7 +111,7 @@ export default function Dashboard() {
       </div>
 
       {/* Category breakdown */}
-      <div style={card}>
+      <div className="card">
         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 14 }}>
           Per kategori
         </div>

@@ -13,13 +13,15 @@ export default function Layout() {
 
   return (
     <div>
-      <nav>
+      <nav className="app-nav">
+        <span className="brand">Leiteveien</span>
         {navItems.map((item) => (
           <NavLink key={item.to} to={item.to} end={item.to === '/'}>
             {item.label}
           </NavLink>
         ))}
-        <button onClick={logout}>Logg ut</button>
+        <div className="nav-spacer" />
+        <button className="btn-logout" onClick={logout}>Logg ut</button>
       </nav>
       <main>
         <Outlet />

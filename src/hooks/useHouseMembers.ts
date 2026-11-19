@@ -12,7 +12,7 @@ export function useHouseMembers(user: User | null) {
     // Register current user as a house member
     setDoc(doc(db, 'house', 'main', 'members', user.uid), {
       uid: user.uid,
-      name: user.displayName || user.email?.split('@')[0] || 'Ukjent',
+      name: user.displayName || 'Kristian',
       email: user.email || '',
     } satisfies HouseMember, { merge: true })
   }, [user])

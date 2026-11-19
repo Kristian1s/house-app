@@ -38,9 +38,6 @@ export default function Expenses() {
   const diff = myTotal - total / 2
   const otherName = currentUserName === 'Kristian' ? 'Kristine' : 'Kristian'
 
-  const card: React.CSSProperties = {
-    background: 'var(--code-bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px',
-  }
   const chip = (active: boolean): React.CSSProperties => ({
     padding: '4px 10px', borderRadius: 20, fontSize: 12, cursor: 'pointer',
     border: '1px solid var(--border)',
@@ -50,7 +47,7 @@ export default function Expenses() {
   })
 
   return (
-    <div style={{ padding: '24px 16px', maxWidth: 800, margin: '0 auto' }}>
+    <div className="page">
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <h1 style={{ margin: 0 }}>Utgifter</h1>
@@ -63,7 +60,7 @@ export default function Expenses() {
       </div>
 
       {/* 50/50 balance */}
-      <div style={{ ...card, marginBottom: 16, background: diff !== 0 ? 'var(--accent-bg)' : 'var(--code-bg)', border: `1px solid ${diff !== 0 ? 'var(--accent-border)' : 'var(--border)'}` }}>
+      <div className="card" style={{ marginBottom: 16, ...(diff !== 0 && { background: 'var(--accent-bg)', border: '1px solid var(--accent-border)' }) }}>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>50/50 balanse</div>
         <div style={{ fontSize: 20, fontWeight: 700, color: diff !== 0 ? 'var(--accent)' : 'var(--text-h)' }}>
           {loading ? '…' : diff === 0 ? 'Dere er kvitt' : diff > 0 ? `${otherName} skylder deg ${fmt(diff)}` : `Du skylder ${otherName} ${fmt(Math.abs(diff))}`}
@@ -91,7 +88,7 @@ export default function Expenses() {
       </div>
 
       {/* Expense list */}
-      <div style={card}>
+      <div className="card">
         {loading ? (
           <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: 0 }}>Laster…</p>
         ) : filtered.length === 0 ? (
