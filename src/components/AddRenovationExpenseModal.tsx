@@ -206,7 +206,7 @@ export default function AddRenovationExpenseModal({ projectId, currentUserName, 
                 </div>
                 <div>
                   <label style={lbl}>E-post</label>
-                  <input style={field} type="email" placeholder="firma@epost.no" value={epost} onChange={e => setEpost(e.target.value)} />
+                  <input style={field} type="text" placeholder="firma@epost.no" value={epost} onChange={e => setEpost(e.target.value)} />
                 </div>
               </div>
             )}
